@@ -1,5 +1,4 @@
 rootProject.name = 'RNAndroidGeoExample'
 
-include ':app'
 include ':RNAndroidGeolocation', ':app'
-project(':RNAndroidGeolocation').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-android-geolocation')
+project(':RNAndroidGeolocation').projectDir = new File(rootProject.projectDir, '../../')

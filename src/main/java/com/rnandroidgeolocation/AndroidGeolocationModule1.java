@@ -7,65 +7,97 @@ import android.util.Log;
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
 import com.baidu.location.Poi;
-
-import com.facebook.react.bridge.Callback;
-import com.facebook.react.bridge.LifecycleEventListener;
-import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.WritableMap;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 
-public class AndroidGeolocationModule extends ReactContextBaseJavaModule implements LifecycleEventListener, BDLocationListener {
+public class AndroidGeolocationModule1 extends ReactContextBaseJavaModule
+  implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
   protected static final String TAG = "GeoLocation";
   protected GoogleApiClient mGoogleApiClient;
   protected Location mLastLocation;
   private BaiduLocationService baiduLocationService;
 
-  private BDLocation location;
+  private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
 
   @Override
   public String getName() {
     return "AndroidGeolocation";
   }
 
-  public AndroidGeolocationModule(ReactApplicationContext reactContext) {
+  public AndroidGeolocationModule1(ReactApplicationContext reactContext) {
     super(reactContext);
-    reactContext.addLifecycleEventListener(this);
+    buildGoogleApiClient();
     buildBaiduApiClient();
+  }
+
+  protected synchronized void buildGoogleApiClient() {
+    mGoogleApiClient = new GoogleApiClient.Builder(getReactApplicationContext())
+      .addConnectionCallbacks(this)
+      .addOnConnectionFailedListener(this)
+      .addApi(LocationServices.API)
+      .build();
+    mGoogleApiClient.connect();
   }
 
   protected synchronized void buildBaiduApiClient() {
     baiduLocationService = new BaiduLocationService(getReactApplicationContext());
-    baiduLocationService.registerListener(this);
   }
 
   @ReactMethod
   public void getCurrentLocation(Callback success, Callback error) {
-//    WritableMap location = Arguments.createMap();
-//    WritableMap coords = Arguments.createMap();
-//    String errorMessage = "Location could not be retrieved";
-//    mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-//    if( mLastLocation != null ) {
-//      // If a location is returned, will invoke success callback with the locatation using a Javascript object
-//      coords.putDouble("latitude", mLastLocation.getLatitude());
-//      coords.putDouble("longitude", mLastLocation.getLongitude());
-//      location.putMap("coords", coords);
-//      success.invoke(location);
-//    } else {
-//      // Else, the error callback is invoked with an error message
-//      error.invoke(errorMessage);
-//    }
+    WritableMap location = Arguments.createMap();
+    WritableMap coords = Arguments.createMap();
+    String errorMessage = "Location could not be retrieved";
+    mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+    if( mLastLocation != null ) {
+      // If a location is returned, will invoke success callback with the locatation using a Javascript object
+      coords.putDouble("latitude", mLastLocation.getLatitude());
+      coords.putDouble("longitude", mLastLocation.getLongitude());
+      location.putMap("coords", coords);
+      success.invoke(location);
+    } else {
+      // Else, the error callback is invoked with an error message
+      error.invoke(errorMessage);
+    }
   }
+
+  @Override
+  public void onConnected(Bundle connectionHint) {
+    mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+  }
+
+
+  @Override
+  public void onConnectionFailed(ConnectionResult result) {
+      // Refer to Google Play documentation for what errors can be logged
+      Log.i(TAG, "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
+  }
+
+  @Override
+    public void onConnectionSuspended(int cause) {
+      // Attempts to reconnect if a disconnect occurs
+      Log.i(TAG, "Connection suspended");
+      mGoogleApiClient.connect();
+  }
+
+  /*****
+   * @see copy funtion to you project
+   * 定位结果回调，重写onReceiveLocation方法，可以直接拷贝如下代码到自己工程中修改
+   *
+   */
+  private BDLocationListener mListener = new BDLocationListener() {
 
     @Override
     public void onReceiveLocation(BDLocation location) {
       // TODO Auto-generated method stub
       if (null != location && location.getLocType() != BDLocation.TypeServerError) {
-        this.location = location;
         StringBuffer sb = new StringBuffer(256);
         sb.append("time : ");
         /**
@@ -147,19 +179,5 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule impleme
       }
     }
 
-
-  @Override
-  public void onHostResume() {
-    baiduLocationService.start();
-  }
-
-  @Override
-  public void onHostPause() {
-    baiduLocationService.stop();
-  }
-
-  @Override
-  public void onHostDestroy() {
-    baiduLocationService.unregisterListener(this);
-  }
+  };
 }
