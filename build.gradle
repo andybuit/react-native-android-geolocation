@@ -10,9 +10,16 @@ android {
         versionCode 1
         versionName "1.0"
     }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+    }
 }
 
 dependencies {
-    compile 'com.facebook.react:react-native:0.11.+'
-    compile 'com.google.android.gms:play-services-location:8.1.0'
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.facebook.react:react-native:+'
+    compile 'com.google.android.gms:play-services-location:9.4.0'
 }
