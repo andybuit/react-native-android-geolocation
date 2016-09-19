@@ -1,0 +1,4 @@
+rootProject.name = 'TestGeoloation'
+
+include ':RNAndroidGeolocation', ':app'
+project(':RNAndroidGeolocation').projectDir = new File(rootProject.projectDir, '../../')

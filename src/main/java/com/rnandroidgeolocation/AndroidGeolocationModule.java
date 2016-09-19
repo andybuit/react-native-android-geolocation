@@ -1,165 +1,276 @@
 package com.rnandroidgeolocation;
 
-import android.location.Location;
-import android.os.Bundle;
-import android.util.Log;
+import android.location.LocationManager;
+import android.os.Handler;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
-import com.baidu.location.Poi;
-
-import com.facebook.react.bridge.Callback;
-import com.facebook.react.bridge.LifecycleEventListener;
-import com.facebook.react.bridge.WritableMap;
+import com.baidu.location.LocationClientOption;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationServices;
+import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.common.SystemClock;
+import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
 
-public class AndroidGeolocationModule extends ReactContextBaseJavaModule implements LifecycleEventListener, BDLocationListener {
-  protected static final String TAG = "GeoLocation";
-  protected GoogleApiClient mGoogleApiClient;
-  protected Location mLastLocation;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import javax.annotation.Nullable;
+
+/**
+ * Native module that exposes Geolocation to JS.
+ */
+public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
+
+  private @Nullable String mWatchedProvider;
+  private static final int RCT_DEFAULT_LOCATION_ACCURACY = 100;
   private BaiduLocationService baiduLocationService;
+  private static final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm:ssZ");
 
-  private BDLocation location;
-
-  @Override
-  public String getName() {
-    return "AndroidGeolocation";
-  }
-
-  public AndroidGeolocationModule(ReactApplicationContext reactContext) {
-    super(reactContext);
-    reactContext.addLifecycleEventListener(this);
-    buildBaiduApiClient();
-  }
-
-  protected synchronized void buildBaiduApiClient() {
-    baiduLocationService = new BaiduLocationService(getReactApplicationContext());
-    baiduLocationService.registerListener(this);
-  }
-
-  @ReactMethod
-  public void getCurrentLocation(Callback success, Callback error) {
-//    WritableMap location = Arguments.createMap();
-//    WritableMap coords = Arguments.createMap();
-//    String errorMessage = "Location could not be retrieved";
-//    mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-//    if( mLastLocation != null ) {
-//      // If a location is returned, will invoke success callback with the locatation using a Javascript object
-//      coords.putDouble("latitude", mLastLocation.getLatitude());
-//      coords.putDouble("longitude", mLastLocation.getLongitude());
-//      location.putMap("coords", coords);
-//      success.invoke(location);
-//    } else {
-//      // Else, the error callback is invoked with an error message
-//      error.invoke(errorMessage);
-//    }
-  }
+  private final BDLocationListener mLocationListener = new BDLocationListener() {
 
     @Override
     public void onReceiveLocation(BDLocation location) {
       // TODO Auto-generated method stub
       if (null != location && location.getLocType() != BDLocation.TypeServerError) {
-        this.location = location;
-        StringBuffer sb = new StringBuffer(256);
-        sb.append("time : ");
-        /**
-         * 时间也可以使用systemClock.elapsedRealtime()方法 获取的是自从开机以来，每次回调的时间；
-         * location.getTime() 是指服务端出本次结果的时间，如果位置不发生变化，则时间不变
-         */
-        sb.append(location.getTime());
-        sb.append("\nlocType : ");// 定位类型
-        sb.append(location.getLocType());
-        sb.append("\nlocType description : ");// *****对应的定位类型说明*****
-        sb.append(location.getLocTypeDescription());
-        sb.append("\nlatitude : ");// 纬度
-        sb.append(location.getLatitude());
-        sb.append("\nlontitude : ");// 经度
-        sb.append(location.getLongitude());
-        sb.append("\nradius : ");// 半径
-        sb.append(location.getRadius());
-        sb.append("\nCountryCode : ");// 国家码
-        sb.append(location.getCountryCode());
-        sb.append("\nCountry : ");// 国家名称
-        sb.append(location.getCountry());
-        sb.append("\ncitycode : ");// 城市编码
-        sb.append(location.getCityCode());
-        sb.append("\ncity : ");// 城市
-        sb.append(location.getCity());
-        sb.append("\nDistrict : ");// 区
-        sb.append(location.getDistrict());
-        sb.append("\nStreet : ");// 街道
-        sb.append(location.getStreet());
-        sb.append("\naddr : ");// 地址信息
-        sb.append(location.getAddrStr());
-        sb.append("\nUserIndoorState: ");// *****返回用户室内外判断结果*****
-        sb.append(location.getUserIndoorState());
-        sb.append("\nDirection(not all devices have value): ");
-        sb.append(location.getDirection());// 方向
-        sb.append("\nlocationdescribe: ");
-        sb.append(location.getLocationDescribe());// 位置语义化信息
-        sb.append("\nPoi: ");// POI信息
-        if (location.getPoiList() != null && !location.getPoiList().isEmpty()) {
-          for (int i = 0; i < location.getPoiList().size(); i++) {
-            Poi poi = (Poi) location.getPoiList().get(i);
-            sb.append(poi.getName() + ";");
-          }
-        }
-        if (location.getLocType() == BDLocation.TypeGpsLocation) {// GPS定位结果
-          sb.append("\nspeed : ");
-          sb.append(location.getSpeed());// 速度 单位：km/h
-          sb.append("\nsatellite : ");
-          sb.append(location.getSatelliteNumber());// 卫星数目
-          sb.append("\nheight : ");
-          sb.append(location.getAltitude());// 海拔高度 单位：米
-          sb.append("\ngps status : ");
-          sb.append(location.getGpsAccuracyStatus());// *****gps质量判断*****
-          sb.append("\ndescribe : ");
-          sb.append("gps定位成功");
-        } else if (location.getLocType() == BDLocation.TypeNetWorkLocation) {// 网络定位结果
-          // 运营商信息
-          if (location.hasAltitude()) {// *****如果有海拔高度*****
-            sb.append("\nheight : ");
-            sb.append(location.getAltitude());// 单位：米
-          }
-          sb.append("\noperationers : ");// 运营商信息
-          sb.append(location.getOperators());
-          sb.append("\ndescribe : ");
-          sb.append("网络定位成功");
-        } else if (location.getLocType() == BDLocation.TypeOffLineLocation) {// 离线定位结果
-          sb.append("\ndescribe : ");
-          sb.append("离线定位成功，离线定位结果也是有效的");
-        } else if (location.getLocType() == BDLocation.TypeServerError) {
-          sb.append("\ndescribe : ");
-          sb.append("服务端网络定位失败，可以反馈IMEI号和大体定位时间到loc-bugs@baidu.com，会有人追查原因");
-        } else if (location.getLocType() == BDLocation.TypeNetWorkException) {
-          sb.append("\ndescribe : ");
-          sb.append("网络不同导致定位失败，请检查网络是否通畅");
-        } else if (location.getLocType() == BDLocation.TypeCriteriaException) {
-          sb.append("\ndescribe : ");
-          sb.append("无法获取有效定位依据导致定位失败，一般是由于手机的原因，处于飞行模式下一般会造成这种结果，可以试着重启手机");
-        }
+        getReactApplicationContext().getJSModule(RCTDeviceEventEmitter.class)
+                .emit("geolocationDidChange", locationToMap(location));
       }
     }
+  };
 
+  public AndroidGeolocationModule(ReactApplicationContext reactContext) {
+    super(reactContext);
+    buildBaiduApiClient();
 
-  @Override
-  public void onHostResume() {
-    baiduLocationService.start();
+  }
+
+  private synchronized void buildBaiduApiClient() {
+    baiduLocationService = new BaiduLocationService(getReactApplicationContext());
+//    baiduLocationService.registerListener(mLocationListener);
   }
 
   @Override
-  public void onHostPause() {
+  public String getName() {
+    return "LocationObserver";
+  }
+
+//  private static class LocationOptions {
+//    private final long timeout;
+//    private final double maximumAge;
+//    private final boolean highAccuracy;
+//    private final float distanceFilter;
+//
+//    private LocationOptions(long timeout, double maximumAge, boolean highAccuracy, float distanceFilter) {
+//      this.timeout = timeout;
+//      this.maximumAge = maximumAge;
+//      this.highAccuracy = highAccuracy;
+//      this.distanceFilter = distanceFilter;
+//    }
+//
+//    private static LocationOptions fromReactMap(ReadableMap map) {
+//      // precision might be dropped on timeout (double -> int conversion), but that's OK
+//      long timeout =
+//          map.hasKey("timeout") ? (long) map.getDouble("timeout") : Long.MAX_VALUE;
+//      double maximumAge =
+//          map.hasKey("maximumAge") ? map.getDouble("maximumAge") : Double.POSITIVE_INFINITY;
+//      boolean highAccuracy =
+//          map.hasKey("enableHighAccuracy") && map.getBoolean("enableHighAccuracy");
+//      float distanceFilter =
+//          map.hasKey("distanceFilter") ? (float) map.getDouble("distanceFilter") : RCT_DEFAULT_LOCATION_ACCURACY;
+//
+//      return new LocationOptions(timeout, maximumAge, highAccuracy, distanceFilter);
+//    }
+//  }
+
+  private  LocationClientOption fromReactMap(ReadableMap map) {
+    // precision might be dropped on timeout (double -> int conversion), but that's OK
+    int timeout =
+            map.hasKey("timeout") ? (int) map.getDouble("timeout") : Integer.MAX_VALUE;
+    int maximumAge =
+            map.hasKey("maximumAge") ?(int)  map.getDouble("maximumAge") : Integer.MAX_VALUE;
+    boolean highAccuracy =
+            map.hasKey("enableHighAccuracy") && map.getBoolean("enableHighAccuracy");
+    int distanceFilter =
+            map.hasKey("distanceFilter") ? (int) map.getDouble("distanceFilter") : RCT_DEFAULT_LOCATION_ACCURACY;
+
+    LocationClientOption option = baiduLocationService.getDefaultLocationClientOption();
+
+    option.setTimeOut(timeout);
+    option.setScanSpan(maximumAge);
+    option.setOpenAutoNotifyMode(maximumAge, distanceFilter, LocationClientOption.LOC_SENSITIVITY_HIGHT);
+    if(highAccuracy) option.setLocationMode(LocationClientOption.LocationMode.Hight_Accuracy);
+    else option.setLocationMode(LocationClientOption.LocationMode.Battery_Saving);
+
+
+
+    return option;
+  }
+
+  /**
+   * Get the current position. This can return almost immediately if the location is cached or
+   * request an update, which might take a while.
+   *
+   * @param options map containing optional arguments: timeout (millis), maximumAge (millis) and
+   *        highAccuracy (boolean)
+   */
+  @ReactMethod
+  public void getCurrentPosition(
+      ReadableMap options,
+      final Callback success,
+      Callback error) {
+    LocationClientOption locationOptions = fromReactMap(options);
+
+    baiduLocationService.setLocationOption(locationOptions);
+    baiduLocationService.start();
+    BDLocation location = baiduLocationService.getLastKnownLocation();
+      try {
+          if (location != null &&
+                  SystemClock.currentTimeMillis() - formatter.parse(location.getTime()+"+0800").getTime() < locationOptions.getScanSpan()) {
+            success.invoke(locationToMap(location));
+            return;
+          }
+      } catch (ParseException e) {
+          e.printStackTrace();
+      }
+      new SingleUpdateRequest(this.baiduLocationService, locationOptions.getTimeOut(), success, error)
+            .invoke();
+  }
+
+  /**
+   * Start listening for location updates. These will be emitted via the
+   * {@link RCTDeviceEventEmitter} as {@code geolocationDidChange} events.
+   *
+   * @param options map containing optional arguments: highAccuracy (boolean)
+   */
+  @ReactMethod
+  public void startObserving(ReadableMap options) {
+    if(this.baiduLocationService.isStarted()) this.baiduLocationService.stop();
+    LocationClientOption locationOptions = fromReactMap(options);
+
+    baiduLocationService.setLocationOption(locationOptions);
+    baiduLocationService.registerListener(mLocationListener);
+    baiduLocationService.start();
+
+  }
+
+  /**
+   * Stop listening for location updates.
+   *
+   * NB: this is not balanced with {@link #startObserving}: any number of calls to that method will
+   * be canceled by just one call to this one.
+   */
+  @ReactMethod
+  public void stopObserving() {
+    baiduLocationService.unregisterListener(mLocationListener);
     baiduLocationService.stop();
   }
 
-  @Override
-  public void onHostDestroy() {
-    baiduLocationService.unregisterListener(this);
+  @Nullable
+  private static String getValidProvider(LocationManager locationManager, boolean highAccuracy) {
+    String provider =
+        highAccuracy ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+    if (!locationManager.isProviderEnabled(provider)) {
+      provider = provider.equals(LocationManager.GPS_PROVIDER)
+          ? LocationManager.NETWORK_PROVIDER
+          : LocationManager.GPS_PROVIDER;
+      if (!locationManager.isProviderEnabled(provider)) {
+        return null;
+      }
+    }
+    return provider;
+  }
+
+  private static WritableMap locationToMap(BDLocation location) {
+    WritableMap map = Arguments.createMap();
+    WritableMap coords = Arguments.createMap();
+    coords.putDouble("latitude", location.getLatitude());
+    coords.putDouble("longitude", location.getLongitude());
+    coords.putDouble("altitude", location.getAltitude());
+    coords.putDouble("accuracy", location.getRadius());
+    coords.putDouble("heading", location.getDirection());
+    coords.putDouble("speed", location.getSpeed());
+    map.putMap("coords", coords);
+    Date time = null;
+    try {
+      time = formatter.parse(location.getTime());
+    } catch (ParseException e) {
+      e.printStackTrace();
+    }
+    map.putDouble("timestamp", time!=null?time.getTime():0);
+    return map;
+  }
+
+  private void emitError(String error) {
+    getReactApplicationContext().getJSModule(RCTDeviceEventEmitter.class)
+        .emit("geolocationError", error);
+  }
+
+  /**
+   * Provides a clearer exception message than the default one.
+   */
+  private static void throwLocationPermissionMissing(SecurityException e) {
+    throw new SecurityException(
+      "Looks like the app doesn't have the permission to access location.\n" +
+      "Add the following line to your app's AndroidManifest.xml:\n" +
+      "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />", e);
+  }
+
+  private static class SingleUpdateRequest {
+
+    private final Callback mSuccess;
+    private final Callback mError;
+    private final BaiduLocationService mbaiduLocationService;
+    private final long mTimeout;
+    private final Handler mHandler = new Handler();
+    private final Runnable mTimeoutRunnable = new Runnable() {
+      @Override
+      public void run() {
+        synchronized (SingleUpdateRequest.this) {
+          if (!mTriggered) {
+            mError.invoke("Location request timed out");
+            mbaiduLocationService.unregisterListener(mLocationListener);
+            mTriggered = true;
+          }
+        }
+      }
+    };
+    private final BDLocationListener mLocationListener = new BDLocationListener() {
+        @Override
+        public void onReceiveLocation(BDLocation bdLocation) {
+            synchronized (SingleUpdateRequest.this) {
+                if (!mTriggered) {
+                    mSuccess.invoke(locationToMap(bdLocation));
+                    mHandler.removeCallbacks(mTimeoutRunnable);
+                    mTriggered = true;
+                    mbaiduLocationService.unregisterListener(mLocationListener);
+                    mbaiduLocationService.stop();
+                }
+            }
+        }
+
+    };
+    private boolean mTriggered;
+
+    private SingleUpdateRequest(
+            BaiduLocationService baiduLocationService,
+        long timeout,
+        Callback success,
+        Callback error) {
+        mbaiduLocationService = baiduLocationService;
+      mTimeout = timeout;
+      mSuccess = success;
+      mError = error;
+    }
+
+    public void invoke() {
+      mbaiduLocationService.registerListener(mLocationListener);
+      mHandler.postDelayed(mTimeoutRunnable, mTimeout);
+    }
   }
 }

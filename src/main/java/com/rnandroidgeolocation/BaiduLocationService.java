@@ -122,5 +122,9 @@ public class BaiduLocationService {
 		}
 		return null;
 	}
+
+	public boolean isStarted(){
+		return client.isStarted();
+	}
 	
 }

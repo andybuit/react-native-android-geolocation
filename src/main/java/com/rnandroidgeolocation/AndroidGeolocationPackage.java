@@ -1,17 +1,15 @@
 package com.rnandroidgeolocation;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import com.rnandroidgeolocation.AndroidGeolocationModule;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.JavaScriptModule;
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.views.view.ReactViewManager;
 import com.facebook.react.uimanager.ViewManager;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class AndroidGeolocationPackage implements ReactPackage {
 
