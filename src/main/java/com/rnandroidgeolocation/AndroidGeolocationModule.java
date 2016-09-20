@@ -1,6 +1,5 @@
 package com.rnandroidgeolocation;
 
-import android.location.LocationManager;
 import android.os.Handler;
 
 import com.baidu.location.BDLocation;
@@ -8,6 +7,7 @@ import com.baidu.location.BDLocationListener;
 import com.baidu.location.LocationClientOption;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 /**
  * Native module that exposes Geolocation to JS.
  */
-public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
+public class AndroidGeolocationModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
   private @Nullable String mWatchedProvider;
   private static final int RCT_DEFAULT_LOCATION_ACCURACY = 100;
@@ -46,58 +46,40 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
 
   public AndroidGeolocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
-    buildBaiduApiClient();
-
+//    buildBaiduApiClient();
   }
 
   private synchronized void buildBaiduApiClient() {
-    baiduLocationService = new BaiduLocationService(getReactApplicationContext());
-//    baiduLocationService.registerListener(mLocationListener);
+//    this.getReactApplicationContext().getCurrentActivity().runOnUiThread(
+//      new Thread(
+//            new Runnable() {
+//              @Override
+//              public void run() {
+//                Looper.prepare();
+        if(baiduLocationService==null)
+                baiduLocationService = new BaiduLocationService(getReactApplicationContext());
+//                Looper.loop();
+//              }
+//            }
+//      ).start();
+
   }
 
   @Override
   public String getName() {
-    return "LocationObserver";
+    return "BDLocationObserver";
   }
-
-//  private static class LocationOptions {
-//    private final long timeout;
-//    private final double maximumAge;
-//    private final boolean highAccuracy;
-//    private final float distanceFilter;
-//
-//    private LocationOptions(long timeout, double maximumAge, boolean highAccuracy, float distanceFilter) {
-//      this.timeout = timeout;
-//      this.maximumAge = maximumAge;
-//      this.highAccuracy = highAccuracy;
-//      this.distanceFilter = distanceFilter;
-//    }
-//
-//    private static LocationOptions fromReactMap(ReadableMap map) {
-//      // precision might be dropped on timeout (double -> int conversion), but that's OK
-//      long timeout =
-//          map.hasKey("timeout") ? (long) map.getDouble("timeout") : Long.MAX_VALUE;
-//      double maximumAge =
-//          map.hasKey("maximumAge") ? map.getDouble("maximumAge") : Double.POSITIVE_INFINITY;
-//      boolean highAccuracy =
-//          map.hasKey("enableHighAccuracy") && map.getBoolean("enableHighAccuracy");
-//      float distanceFilter =
-//          map.hasKey("distanceFilter") ? (float) map.getDouble("distanceFilter") : RCT_DEFAULT_LOCATION_ACCURACY;
-//
-//      return new LocationOptions(timeout, maximumAge, highAccuracy, distanceFilter);
-//    }
-//  }
 
   private  LocationClientOption fromReactMap(ReadableMap map) {
     // precision might be dropped on timeout (double -> int conversion), but that's OK
     int timeout =
-            map.hasKey("timeout") ? (int) map.getDouble("timeout") : Integer.MAX_VALUE;
+            map.hasKey("timeout") ? (int) map.getInt("timeout") : Integer.MAX_VALUE;
     int maximumAge =
-            map.hasKey("maximumAge") ?(int)  map.getDouble("maximumAge") : Integer.MAX_VALUE;
+            map.hasKey("maximumAge") ?(int)  map.getInt("maximumAge") : Integer.MAX_VALUE;
     boolean highAccuracy =
             map.hasKey("enableHighAccuracy") && map.getBoolean("enableHighAccuracy");
     int distanceFilter =
-            map.hasKey("distanceFilter") ? (int) map.getDouble("distanceFilter") : RCT_DEFAULT_LOCATION_ACCURACY;
+            map.hasKey("distanceFilter") ? (int) map.getInt("distanceFilter") : RCT_DEFAULT_LOCATION_ACCURACY;
 
     LocationClientOption option = baiduLocationService.getDefaultLocationClientOption();
 
@@ -124,10 +106,11 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
       ReadableMap options,
       final Callback success,
       Callback error) {
+    buildBaiduApiClient();
     LocationClientOption locationOptions = fromReactMap(options);
 
     baiduLocationService.setLocationOption(locationOptions);
-    baiduLocationService.start();
+//    baiduLocationService.start();
     BDLocation location = baiduLocationService.getLastKnownLocation();
       try {
           if (location != null &&
@@ -150,6 +133,7 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
    */
   @ReactMethod
   public void startObserving(ReadableMap options) {
+    buildBaiduApiClient();
     if(this.baiduLocationService.isStarted()) this.baiduLocationService.stop();
     LocationClientOption locationOptions = fromReactMap(options);
 
@@ -169,21 +153,6 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
   public void stopObserving() {
     baiduLocationService.unregisterListener(mLocationListener);
     baiduLocationService.stop();
-  }
-
-  @Nullable
-  private static String getValidProvider(LocationManager locationManager, boolean highAccuracy) {
-    String provider =
-        highAccuracy ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
-    if (!locationManager.isProviderEnabled(provider)) {
-      provider = provider.equals(LocationManager.GPS_PROVIDER)
-          ? LocationManager.NETWORK_PROVIDER
-          : LocationManager.GPS_PROVIDER;
-      if (!locationManager.isProviderEnabled(provider)) {
-        return null;
-      }
-    }
-    return provider;
   }
 
   private static WritableMap locationToMap(BDLocation location) {
@@ -270,7 +239,27 @@ public class AndroidGeolocationModule extends ReactContextBaseJavaModule {
 
     public void invoke() {
       mbaiduLocationService.registerListener(mLocationListener);
+      mbaiduLocationService.start();
       mHandler.postDelayed(mTimeoutRunnable, mTimeout);
     }
+  }
+
+  @Override
+  public void onHostResume() {
+
+    baiduLocationService.start();
+  }
+
+  @Override
+  public void onHostPause() {
+
+    baiduLocationService.stop();
+  }
+
+  @Override
+  public void onHostDestroy() {
+
+    baiduLocationService.stop();
+    baiduLocationService.unregisterListener(mLocationListener);
   }
 }

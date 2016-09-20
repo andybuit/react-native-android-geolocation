@@ -9,44 +9,63 @@ import {
   AppRegistry,
   StyleSheet,
   Text,
-  View
+  View,
+  TouchableHighlight
 } from 'react-native';
 
-class TestGeoloation extends Component {
+import Geolocation from 'react-native-android-geolocation'
+
+class TestGeoloation extends React.Component {
+  state = {
+    initialPosition: 'unknown',
+    lastPosition: 'unknown',
+  };
+
+  watchID: ?number = null;
+
+  getGeoLocation() {
+    Geolocation.getCurrentPosition(
+      (position) => {
+        var initialPosition = JSON.stringify(position);
+        this.setState({initialPosition});
+      },
+      (error) => alert(JSON.stringify(error)),
+      {enableHighAccuracy: true, timeout: 20000, maximumAge: 11000}
+    );
+    this.watchID = Geolocation.watchPosition((position) => {
+      var lastPosition = JSON.stringify(position);
+      this.setState({lastPosition});
+    },
+      (error) => alert(JSON.stringify(error)),
+      {enableHighAccuracy: true, timeout: 20000, maximumAge: 11000});
+  }
+
+  componentWillUnmount() {
+    Geolocation.clearWatch(this.watchID);
+  }
+
   render() {
     return (
-      <View style={styles.container}>
-        <Text style={styles.welcome}>
-          Welcome to React Native!
+      <View>
+       <TouchableHighlight onPress={this.getGeoLocation}>
+        <Text>Get</Text>
+       </TouchableHighlight>
+        <Text>
+          <Text style={styles.title}>Initial position: </Text>
+          {this.state.initialPosition}
         </Text>
-        <Text style={styles.instructions}>
-          To get started, edit index.android.js
-        </Text>
-        <Text style={styles.instructions}>
-          Double tap R on your keyboard to reload,{'\n'}
-          Shake or press menu button for dev menu
+        <Text>
+          <Text style={styles.title}>Current position: </Text>
+          {this.state.lastPosition}
         </Text>
       </View>
     );
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
+var styles = StyleSheet.create({
+  title: {
+    fontWeight: '500',
   },
 });
 

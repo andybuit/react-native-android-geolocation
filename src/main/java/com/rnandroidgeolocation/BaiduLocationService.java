@@ -28,6 +28,7 @@ public class BaiduLocationService {
 	 * @param locationContext
 	 */
 	public BaiduLocationService(Context locationContext){
+
 		synchronized (objLock) {
 			if(client == null){
 				client = new LocationClient(locationContext);
@@ -117,7 +118,7 @@ public class BaiduLocationService {
 	}
 
 	public BDLocation getLastKnownLocation(){
-		if(client != null && client.isStarted()){
+		if(client != null){
 			return client.getLastKnownLocation();
 		}
 		return null;
